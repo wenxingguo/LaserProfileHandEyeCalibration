@@ -1,60 +1,73 @@
 #include "LaserProfileHandEyeCalibration.h"
+#include "json.hpp"
 #include <Eigen/Dense>
+#include <fstream>
 #include <iostream>
+
+struct profile_data {
+    std::vector<double> robot_pose;
+    std::vector<double> profile_x;
+    // std::vector<double> profile_y; // 恒为 0
+    std::vector<double> profile_z;
+};
 
 int main(int argc, char* argv[])
 {
-    /*point2d p1 = { 0, 1 + 1 };
-    point2d p2 = { 1, 0 + 1 };
-    point2d p3 = { 0, -1 + 1 };
-    std::vector<point2d> points;
-    points.push_back(p1);
-    points.push_back(p2);
-    points.push_back(p3);
+    nlohmann::json J;
 
-    point2d center;
-    double radius;
+    std::ifstream f("../pose1.json");
+    if (f.is_open()) {
+        J = nlohmann::json::parse(f);
+    } else {
+        std::cerr << "open file error" << std::endl;
+        std::exit(-1);
+    }
+    // std::cout << "ok" << std::endl;
+    std::vector<profile_data> pose1_data;
+    int i = 0;
+    for (const nlohmann::json& pose_frofile : J) {
+        if (!pose_frofile["profile"].is_null()) {
+            const nlohmann::json& pose = pose_frofile["robot pose"];
+            assert(!pose.is_null());
+            assert(pose.is_array());
+            const nlohmann::json& profile = pose_frofile["profile"];
+            if (profile.size() < 5) {
+                std::cout << "profile point size less than 5, pass" << std::endl;
 
-    double err = fitCircle(points, center, radius);
-    std::cout << err << " " << center.x << " " << center.y << " " << radius << std::endl;*/
-
-    Eigen::Matrix3Xd X;
-    X.resize(3, 5);
-    X << 1, 3, 4, 5, 6,
-        2, 3, 4, 67, 89,
-        1, 2, 5, 6, 100;
-    // Eigen::JacobiSVD<Eigen::Matrix3Xd> svd(X, )
-    Eigen::JacobiSVD<Eigen::Matrix3Xd> svd(X, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    // 获取奇异值向量
-    const Eigen::VectorXd& singularValues = svd.singularValues();
-    double epsilon = 1e-5;
-    // 计算S矩阵的伪逆
-    Eigen::VectorXd invSingularValues(singularValues.size());
-    for (int i = 0; i < singularValues.size(); ++i) {
-        // 判断奇异值是否大于阈值，若大于则取其倒数，否则设为0
-        if (singularValues(i) > epsilon) {
-            invSingularValues(i) = 1.0 / singularValues(i);
-        } else {
-            invSingularValues(i) = 0.0;
+            } else {
+                profile_data P_data;
+                P_data.robot_pose = pose.get<std::vector<double>>();
+                for (const nlohmann::json& point : profile) {
+                    std::vector<double> point_xyz = point.get<std::vector<double>>();
+                    P_data.profile_x.push_back(point_xyz[0]);
+                    // P_data.profile_y.push_back(point_xyz[1]);
+                    P_data.profile_z.push_back(point_xyz[2]);
+                }
+                pose1_data.push_back(P_data);
+            }
         }
     }
+    bool out = true;
+    for (const profile_data& p_data : pose1_data) {
+        assert(p_data.profile_x.size() == p_data.profile_z.size());
+        // assert(p_data.profile_x.size() == p_data.profile_z.size());
 
-    // Eigen::MatrixXd dig = invSingularValues.asDiagonal();
-
-    Eigen::MatrixX3d S_pinv = Eigen::MatrixX3d::Zero(X.cols(), 3);
-    for (int i = 0; i < invSingularValues.size(); ++i) {
-        S_pinv(i, i) = invSingularValues(i);
+        std::vector<point2d> profile_xz;
+        for (int index = 0; index < p_data.profile_x.size(); ++index) {
+            point2d p;
+            p.x = p_data.profile_x[index];
+            p.y = p_data.profile_z[index];
+            profile_xz.push_back(p);
+            if (out) {
+                std::cout << p.x << ", " << p.y << std::endl;
+            }
+        }
+        out = false;
+        point2d c;
+        double r;
+        fitCircle(profile_xz, c, r);
+        // std::cout << "profile point szie: " << profile_xz.size() << " " << c.x << " " << c.y << " " << r << std::endl;
     }
-
-    // 计算原矩阵的伪逆: A^+ = V * S^+ * U^T
-    Eigen::MatrixX3d X_pinv = svd.matrixV() * S_pinv * svd.matrixU().transpose();
-
-    std::cout << X * X_pinv << std::endl;
-
-    std::cout << "U:" << svd.matrixU().rows() << "X" << svd.matrixU().cols() << std::endl;
-    std::cout << "V:" << svd.matrixV().rows() << "X" << svd.matrixV().cols() << std::endl;
-    // std::cout << "dig:" << dig.rows() << "X" << dig.cols() << std::endl;
 
     return 0;
 }
