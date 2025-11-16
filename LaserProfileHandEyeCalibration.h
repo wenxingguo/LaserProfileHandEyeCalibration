@@ -8,18 +8,8 @@
 #ifndef LaserProfileHandEyeCalibration_H
 #define LaserProfileHandEyeCalibration_H
 
+#include "geometry.h"
 #include <vector>
-
-struct point2d {
-    double x;
-    double y;
-};
-
-struct point3d {
-    double x;
-    double y;
-    double z;
-};
 
 /******************************************************************************
  * Function:         fitCircle
