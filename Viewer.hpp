@@ -41,8 +41,8 @@ public:
         stop_flag = true;
     }
 
-    void addPoints(const std::vector<point3d>& points,
-        const std::vector<unsigned char>& rgb = { 255, 255, 255 })
+    void addPoints(const std::vector<point3d>& points)
+        //const std::vector<unsigned char>& rgb = { 255, 255, 255 })
     {
         std::lock_guard<std::mutex> lock_guard(data_mutex);
         for (const point3d& point : points) {
@@ -50,9 +50,9 @@ public:
             point_xyzrgb.x = point.x;
             point_xyzrgb.y = point.y;
             point_xyzrgb.z = point.z;
-            point_xyzrgb.r = rgb[0];
-            point_xyzrgb.g = rgb[1];
-            point_xyzrgb.b = rgb[2];
+            point_xyzrgb.r = point.r;
+            point_xyzrgb.g = point.g;
+            point_xyzrgb.b = point.b;
             temp_pc->push_back(point_xyzrgb);
         }
         if (temp_pc->size() > max_point) {
